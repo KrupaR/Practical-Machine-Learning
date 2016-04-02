@@ -9,3 +9,6 @@
 ##### 1. R code File : ExerciseAnalysis.R 
 ##### 2. R Markup File : ExerciseAnalysis.Rmd
 ##### 3. HTML Output File : ExerciseAnalysis.html
+##### 4. pdf output File : ExerciseAnalysis.pdf
+
+### If you are unable to view HTML file, please refer to the pdf version of the report
