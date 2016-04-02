@@ -1,0 +1,180 @@
+---
+title: "ExerciseAnalysis"
+author: "Krupa"
+date: "Wednesday, March 30, 2016"
+output: html_document
+---
+
+##Practical Machine Learning - Course Project Report
+# 
+####Project Background
+#####Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+#### Project Goal
+##### The goal of the project is to predict the manner in which people exercise. 
+
+
+####Project Data
+
+#####The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+#####The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+#####The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+```{r results='hide', message=FALSE, warning=FALSE}
+# Include required libraries
+library(knitr)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(rattle)
+library(randomForest)
+
+```
+
+### Data loading and cleanup
+#### Download datafiles and read into dataframes
+```{r}
+
+setwd("D:/Data specialist course/Practical Machine Learning/Course Project")
+if (!file.exists("pml-training.csv"))
+{
+  download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile = "pml-training.csv")
+}
+if (!file.exists("pml-testing.csv"))
+{
+  download.file("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile = "pml-testing.csv")
+}
+
+training <- read.csv("pml-training.csv", sep = ",", na.strings = c("", "NA"))
+testing <- read.csv("pml-testing.csv", sep = ",", na.strings = c("", "NA"))
+
+```
+#### Exploring Data
+```{r}
+dim(training)
+dim(testing)
+str(training)
+```
+###Preprocess Data
+
+#### Step 1: Eliminate column 1 as it is not relevant
+```{r}
+training <- training[,-1]
+```
+
+#### Step 2: Eliminate Zero and Near Zero variance columns
+
+```{r}
+myDataNZV <- nearZeroVar(training, saveMetrics=TRUE)
+NZVList <- c()
+for (i in 1:159)
+{
+    if((myDataNZV[i,3] == TRUE) | (myDataNZV[i,4] == TRUE)) NZVList <- c(NZVList,i)
+}
+training <- training[,-NZVList]
+```
+#### Step 3: Eliminate columns having more than 80% values as NA
+
+```{r}
+NaList <- c()
+MaxEntries <- nrow(training)
+for (i in 1:ncol(training))
+{
+  if(sum(is.na(training[ ,i])) > MaxEntries*0.8)NaList <- c(NaList,i)
+	
+}
+cleanedTraining <- training[,-NaList]
+```
+
+#### Final dimension of cleaned data
+
+```{r}
+dim(cleanedTraining)
+```
+
+### Data Partition
+#### Partition 70% of Data as Training Data and remaining 30% as Testing Data; 
+#### These wil be used for building the prediction model
+
+```{r}
+inTrain <- createDataPartition(y=cleanedTraining$classe, p=0.7, list=FALSE)
+myTraining <- cleanedTraining[inTrain, ]
+myTesting <- cleanedTraining[-inTrain, ]
+
+```
+
+#### Final Testing data should have the same columns as the training data to test the model 
+
+```{r}
+cleanCols <- colnames(myTraining[, -58])
+testing <- testing[cleanCols]
+```
+#### Dimensions of the Three data frames
+```{r}
+dim(myTraining)
+dim(myTesting)
+dim(testing)
+```
+#### Ensure that predictors in myTraining and Testing dataframes have the same class
+```{r}
+for (i in 1:length(testing) ) 
+{
+    for(j in 1:length(myTraining)) 
+    {
+        if( names(myTraining[j]) == names(testing[i])) 
+       {
+            class(testing[i]) <- class(myTraining[j])
+        }      
+    }      
+}
+```
+
+####Ensure coertion of dataframes by adding and deleting a row from myTraining dataframe to testing dataframe
+
+```{r}
+testing <- rbind(myTraining[2, -58] , testing) 
+testing <- testing[-1,]
+```
+
+### Model Building 
+
+#### Build Model with myTraining data using rpart(Recursive partitioning)function
+#### classe is the outcome variable and all other columns are predictors
+
+```{r}
+modelFit1 <- rpart(classe ~ ., data=myTraining, method="class")
+fancyRpartPlot(modelFit1)
+```
+
+#### Use the model on myTesting data and predict classe
+
+```{r}
+predictions1 <- predict(modelFit1, myTesting, type = "class")
+confusionMatrix(predictions1, myTesting$classe)
+```
+
+#### The accuracy of the prediction model is low (87.34%)
+
+#### Build Model with myTraining data using randomForest function to improve predictive accuracy
+
+```{r}
+
+modelFit2 <- randomForest(classe ~. , data=myTraining)
+predictions2 <- predict(modelFit2, myTesting, type = "class")
+confusionMatrix(predictions2, myTesting$classe)
+```
+#### Accurancy of the Prediction Model is now 99.85%
+
+### Validate prediction model on testing data
+```{r}
+predictionsFinal <- predict(modelFit2, testing, type = "class")
+```
+
+### Print output
+```{r}
+predictionsFinal
+```
+
+
